@@ -6,6 +6,7 @@
 # Date Created: 4/17/2023
 ###############################################################################
 
+
 # Environment Levels
 # 0 - Singular static cubesat floating in space
 # 1 - space junk dataset objects static floating in space
@@ -23,17 +24,16 @@ class SpaceJunkEnv(gym.Env):
 
     #metadata = {"render.modes": ["human"]}
     
-    #### CORE METHODS FOR RL ####
-    
+    ###### CORE METHODS FOR RL ######
     def __init__(self,level=0):
         super().__init__()
-        self.env_level = level #level
+        self.level = level #level
         # Define action and observation space
         # They must be gym.spaces objects
         # Example when using discrete actions:
-        self.action_space = spaces.Box()
+        self.action_space = spaces.Box(low=-1, high=1, shape=(8,1), dtype=np.float32)
         # Example for using image as input (channel-first; channel-last also works):
-        self.observation_space = spaces.Box(low=0, high=255,shape=(360,640,3), dtype=np.uint8)
+        self.observation_space = spaces.Box(low=0, high=255, shape=(360,640,3), dtype=np.uint8)
         self.sim = None
         self.load()
 
@@ -50,13 +50,10 @@ class SpaceJunkEnv(gym.Env):
 
     
     def close(self):
-        pass
-    
-    
-    
-    
-    #### HELPER METHODS ####
-    
+        return 0
+
+
+    ###### HELPER METHODS ######
     def load(self): #connect to CoppeliaSim & load environment
         client = RemoteAPIClient('localhost',23000)
         self.sim = client.getObject('sim')
@@ -70,6 +67,7 @@ class SpaceJunkEnv(gym.Env):
         sim = self.sim
         block = sim.createPrimitiveShape(self.sim.primitiveshape_cuboid,[0.05,0.05,0.15],0)
         sim.setObjectPosition(block,sim.handle_world,position)
+        return 0
         
         
     def getheadimage(self):
@@ -80,6 +78,8 @@ class SpaceJunkEnv(gym.Env):
         pixels = list(image)
         x = np.array(pixels, dtype=np.uint8)
         array = x.reshape(360,640,3)
-        
         return array
+    
+    def getsim(self):
+        return self.sim
  
