@@ -50,6 +50,7 @@ class SpaceJunkEnv(gym.Env):
 
     
     def close(self):
+        self.sim.stopSimulation()
         return 0
 
 
@@ -60,6 +61,7 @@ class SpaceJunkEnv(gym.Env):
         self.sim.loadScene('/home/vlarko/rl-space-junk/space-sim.ttt')
         if self.level == 0:
             self.addcubesat([0.5,0,0.25])
+        self.sim.startSimulation()
         return 0
 
         
