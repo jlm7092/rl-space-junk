@@ -7,12 +7,14 @@
 ###############################################################################
 
 
-# Environment Levels
-# 0 - Singular static cubesat floating in space
-# 1 - space junk dataset objects static floating in space
+# Environment
+# Singular static cubesat floating in space with slightly varied locations
+# Satellite dataset descoped for core project, may be used later
 
 
 import cbor
+import random
+from time import sleep
 from zmqRemoteApi import RemoteAPIClient
 import gymnasium as gym
 import numpy as np
@@ -44,8 +46,10 @@ class SpaceJunkEnv(gym.Env):
 
     
     def reset(self):
+        self.sim.stopSimulation()
+        sleep(0.1)#give sim enough time to stop
         self.load()
-        observation = getheadimage()
+        observation = self.getheadimage()
         return observation  # reward, done, info can't be included
 
     
@@ -60,7 +64,7 @@ class SpaceJunkEnv(gym.Env):
         self.sim = client.getObject('sim')
         self.sim.loadScene('/home/vlarko/rl-space-junk/space-sim.ttt')
         if self.level == 0:
-            self.addcubesat([0.5,0,0.25])
+            self.stochasticaddcubesat([0.5,0,0.5])
         self.sim.startSimulation()
         return 0
 
@@ -69,6 +73,19 @@ class SpaceJunkEnv(gym.Env):
         sim = self.sim
         block = sim.createPrimitiveShape(self.sim.primitiveshape_cuboid,[0.05,0.05,0.15],0)
         sim.setObjectPosition(block,sim.handle_world,position)
+        return 0
+    
+    def stochasticaddcubesat(self,base_position):
+        sim = self.sim
+        position = []
+        orientation = []
+        for pos in base_position:
+            position.append(pos + (random.random() - 0.5)/5) #-0.1 to 0.1
+        block = sim.createPrimitiveShape(self.sim.primitiveshape_cuboid,[0.05,0.05,0.15],0)
+        sim.setObjectPosition(block,sim.handle_world,position)
+        for i in range(3):
+            orientation.append(random.random()*2*3.14159265)
+        sim.setObjectOrientation(block,block,orientation)
         return 0
         
         
