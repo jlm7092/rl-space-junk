@@ -12,6 +12,7 @@
 import cbor
 import random
 from time import sleep
+from typing import Dict
 from zmqRemoteApi import RemoteAPIClient
 import gymnasium as gym
 import numpy as np
@@ -47,38 +48,39 @@ class SpaceJunkEnv(gym.Env):
     def step(self, action): #this is the chonky one
         sim = self.sim
         #setup defaults
-        observation = {"headcamera":np.zeros((360,640,3)),"joints":np.zeros((8,1))}
+        #observation = spaces.Dict({"headcamera":np.zeros((360,640,3)),"joints":np.zeros((8,1))})
+        observation = {}#spaces.Dict({"headcamera":None,"joints":None})
         reward = -0.01 #doing anything hurts
         done = False
         info = {}
         
         #tell Sawyer position goals
         joint0 = sim.getObject("/Sawyer/joint")
-        sim.setJointTargetPosition(joint0,action[0]*3.14159265,[0.1,0.1,0.1])
+        sim.setJointTargetPosition(joint0,float(action[0])*3.14159265,[0.1,0.1,0.1])
         
         joint1 = sim.getObject("/Sawyer/link/joint")
-        sim.setJointTargetPosition(joint1,action[1]*3.14159265,[0.1,0.1,0.1])
+        sim.setJointTargetPosition(joint1,float(action[1])*3.14159265,[0.1,0.1,0.1])
         
         joint2 = sim.getObject("/Sawyer/link/joint/link/joint")
-        sim.setJointTargetPosition(joint2,action[2]*3.14159265,[0.1,0.1,0.1])
+        sim.setJointTargetPosition(joint2,float(action[2])*3.14159265,[0.1,0.1,0.1])
         
         joint3 = sim.getObject("/Sawyer/link/joint/link/joint/link/joint")
-        sim.setJointTargetPosition(joint3,action[3]*3.14159265,[0.1,0.1,0.1])
+        sim.setJointTargetPosition(joint3,float(action[3])*3.14159265,[0.1,0.1,0.1])
         
         joint4 = sim.getObject("/Sawyer/link/joint/link/joint/link/joint/link/joint")
-        sim.setJointTargetPosition(joint4,action[4]*3.14159265,[0.1,0.1,0.1])
+        sim.setJointTargetPosition(joint4,float(action[4])*3.14159265,[0.1,0.1,0.1])
         
         joint5 = sim.getObject("/Sawyer/link/joint/link/joint/link/joint/link/joint/link/joint")
-        sim.setJointTargetPosition(joint5,action[5]*3.14159265,[0.1,0.1,0.1])
+        sim.setJointTargetPosition(joint5,float(action[5])*3.14159265,[0.1,0.1,0.1])
         
         joint6 = sim.getObject("/Sawyer/link/joint/link/joint/link/joint/link/joint/link/joint/link/joint")
-        sim.setJointTargetPosition(joint6,action[6]*3.14159265,[0.1,0.1,0.1])
+        sim.setJointTargetPosition(joint6,float(action[6])*3.14159265,[0.1,0.1,0.1])
         
         gripper = sim.getObject("/Sawyer/BaxterGripper/centerJoint")
-        if action[7] > 0:
-            sim.setJointTargetVelocity(motorHandle,-0.005)
+        if float(action[7]) > 0:
+            sim.setJointTargetVelocity(gripper,-0.005)
         else:
-            sim.setJointTargetVelocity(motorHandle,0.005)
+            sim.setJointTargetVelocity(gripper,0.005)
         
         
         #step environment
@@ -89,24 +91,46 @@ class SpaceJunkEnv(gym.Env):
         observation["joints"] = self.getjointpositions()
         
         #calculate reward
+        gripperHandle = sim.getObject("/Sawyer/BaxterGripper")
+        leftPadHandle = sim.getObject("/Sawyer/BaxterGripper/leftPad")
+        rightPadHandle = sim.getObject("/Sawyer/BaxterGripper/righPad")
+        cubeSatHandle = sim.getObject("/Cuboid")
+        
+        leftPadCollide,collidingObjectHandles=sim.checkCollision(leftPadHandle,cubeSatHandle)
+        rightPadCollide,collidingObjectHandles=sim.checkCollision(rightPadHandle,cubeSatHandle)
+        gripperCollide,collidingObjectHandles=sim.checkCollision(gripperHandle,cubeSatHandle)
+        
+        if leftPadCollide == 1:
+            reward += 10
+            
+        if rightPadCollide == 1:
+            reward += 10
+            
+        if gripperCollide == 1:
+            reward += 0.1
         
         #done if collide with floor
+        floorHandle = sim.getObject("/Floor/box")
+        
+        floorCollide,collidingObjectHandles=sim.checkCollision(floorHandle,gripperHandle)
+        
+        if floorCollide == 1:
+            done = True
         
         
-        
-        
-        return observation, reward, done, info
+        return observation, reward, done, {}, info
 
     
     def reset(self):
         sim = self.sim
-        observation = spaces.Dict{}
+        #observation = spaces.Dict({"headcamera":np.zeros((360,640,3)),"joints":np.zeros((8,1))})
+        observation = {}#spaces.Dict({"headcamera":None,"joints":None})
         sim.stopSimulation()
         sleep(0.1)#give sim enough time to stop
         self.load()
         observation["headcamera"] = self.getheadimage()
         observation["joints"] = self.getjointpositions()
-        return observation  # reward, done, info can't be included
+        return observation, {} # reward, done, info can't be included
 
     
     def close(self):
@@ -163,7 +187,7 @@ class SpaceJunkEnv(gym.Env):
         return sim
     
     
-    def getjointpositions():
+    def getjointpositions(self):
         sim = self.sim
         joint_positions = np.zeros((8,1))
         
