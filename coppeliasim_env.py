@@ -8,8 +8,7 @@
 
 
 # Environment
-# Singular static cubesat floating in space with slightly varied locations
-# Satellite dataset descoped for core project, may be used later
+# Singular static cubesat floating in space with slightly varied locations & randomized orientation
 
 
 import cbor
@@ -23,36 +22,42 @@ from gymnasium import spaces
 
 class SpaceJunkEnv(gym.Env):
     """Custom Environment that follows gym interface."""
-
-    #metadata = {"render.modes": ["human"]}
     
     ###### CORE METHODS FOR RL ######
-    def __init__(self,level=0):
+    def __init__(self):
         super().__init__()
-        self.level = level #level
-        # Define action and observation space
-        # They must be gym.spaces objects
-        # Example when using discrete actions:
+        
+        #Actions
+        # action[0] = "/Sawyer/joint"
+        # action[1] = "/Sawyer/link/joint"
+        # action[2] = "/Sawyer/link/joint/link/joint"
+        # action[3] = "/Sawyer/link/joint/link/joint/link/joint"
+        # action[4] = "/Sawyer/link/joint/link/joint/link/joint/link/joint"
+        # action[5] = "/Sawyer/link/joint/link/joint/link/joint/link/joint/link/joint"
+        # action[6] = "/Sawyer/link/joint/link/joint/link/joint/link/joint/link/joint/link/joint"
+        # action[7] = "/Sawyer/BaxterGripper/centerJoint"
+        
         self.action_space = spaces.Box(low=-1, high=1, shape=(8,1), dtype=np.float32)
-        # Example for using image as input (channel-first; channel-last also works):
-        self.observation_space = spaces.Box(low=0, high=255, shape=(360,640,3), dtype=np.uint8)
+        
+        self.observation_space = spaces.Dict({"headcamera": spaces.Box(low=0, high=255, shape=(360,640,3), dtype=np.uint8), "joints": spaces.Box(low=-1, high=1, shape=(8,1), dtype=np.float32)}, seed=42)
+        
         self.sim = None
         self.load()
-
         
     def step(self, action): #this is the chonky one
         reward = 0 #default
+        action[0]
         return observation, reward, done, info
 
-    
     def reset(self):
+        observation = spaces.Dict{}
         self.sim.stopSimulation()
         sleep(0.1)#give sim enough time to stop
         self.load()
-        observation = self.getheadimage()
+        observation["headcamera"] = self.getheadimage()
+        observation["joints"] = 
         return observation  # reward, done, info can't be included
 
-    
     def close(self):
         self.sim.stopSimulation()
         return 0
@@ -63,12 +68,10 @@ class SpaceJunkEnv(gym.Env):
         client = RemoteAPIClient('localhost',23000)
         self.sim = client.getObject('sim')
         self.sim.loadScene('/home/vlarko/rl-space-junk/space-sim.ttt')
-        if self.level == 0:
-            self.stochasticaddcubesat([0.5,0,0.5])
+        self.stochasticaddcubesat([0.5,0,0.5])
         self.sim.startSimulation()
         return 0
 
-        
     def addcubesat(self,position):
         sim = self.sim
         block = sim.createPrimitiveShape(self.sim.primitiveshape_cuboid,[0.05,0.05,0.15],0)
@@ -87,7 +90,6 @@ class SpaceJunkEnv(gym.Env):
             orientation.append(random.random()*2*3.14159265)
         sim.setObjectOrientation(block,block,orientation)
         return 0
-        
         
     def getheadimage(self):
         sim = self.sim
