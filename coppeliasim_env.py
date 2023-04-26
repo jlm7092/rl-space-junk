@@ -115,6 +115,7 @@ class SpaceJunkEnv(gym.Env):
         floorCollide,collidingObjectHandles=sim.checkCollision(floorHandle,gripperHandle)
         
         if floorCollide == 1:
+            reward -= 10
             done = True
         
         
@@ -147,6 +148,7 @@ class SpaceJunkEnv(gym.Env):
         self.sim.loadScene('/home/vlarko/rl-space-junk/space-sim.ttt')
         self.stochasticaddcubesat([0.5,0,0.5])
         self.sim.startSimulation()
+        self.sim.setBoolParam(self.sim.boolparam_display_enabled,False)
         return 0
 
     
