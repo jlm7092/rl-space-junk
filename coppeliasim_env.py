@@ -23,7 +23,7 @@ class SpaceJunkEnv(gym.Env):
     """Custom Environment that follows gym interface."""
     
     ###### CORE METHODS FOR RL ######
-    def __init__(self):
+    def __init__(self,stepped=True,fast=True):
         super().__init__()
         
         #Actions
@@ -36,9 +36,12 @@ class SpaceJunkEnv(gym.Env):
         # action[6] = "/Sawyer/link/joint/link/joint/link/joint/link/joint/link/joint/link/joint"
         # action[7] = "/Sawyer/BaxterGripper/centerJoint"
         
+        self.stepped = stepped #determines whether or not simulation is stepped (yes for train, no for test)
+        self.fast = fast #determines whether or not simulation is in fast mode (rendering)
+        
         self.action_space = spaces.Box(low=-1, high=1, shape=(8,1), dtype=np.float32)
         
-        self.observation_space = spaces.Dict({"headcamera": spaces.Box(low=0, high=255, shape=(360,640,3), dtype=np.uint8), "joints": spaces.Box(low=-1, high=1, shape=(8,1), dtype=np.float32)}, seed=42)
+        self.observation_space = spaces.Dict({"headcamera": spaces.Box(low=0, high=255, shape=(360,640,3), dtype=np.uint8), "wristcamera": spaces.Box(low=0, high=255, shape=(480,640,3), dtype=np.uint8),"joints": spaces.Box(low=-1, high=1, shape=(8,1), dtype=np.float32)}, seed=42)
         
         self.sim = None
         self.client = None
@@ -88,6 +91,7 @@ class SpaceJunkEnv(gym.Env):
         
         #observe
         observation["headcamera"] = self.getheadimage()
+        observation["wristcamera"] = self.getwristimage()
         observation["joints"] = self.getjointpositions()
         
         #calculate reward
@@ -130,6 +134,7 @@ class SpaceJunkEnv(gym.Env):
         sleep(0.1)#give sim enough time to stop
         self.load()
         observation["headcamera"] = self.getheadimage()
+        observation["wristcamera"] = self.getwristimage()
         observation["joints"] = self.getjointpositions()
         return observation, {} # reward, done, info can't be included
 
@@ -144,11 +149,13 @@ class SpaceJunkEnv(gym.Env):
     def load(self): #connect to CoppeliaSim & load environment
         self.client = RemoteAPIClient('localhost',23000)
         self.sim = self.client.getObject('sim')
-        self.client.setStepping(True)
+        if self.stepped == True:
+            self.client.setStepping(True)
         self.sim.loadScene('/home/vlarko/rl-space-junk/space-sim.ttt')
         self.stochasticaddcubesat([0.5,0,0.5])
         self.sim.startSimulation()
-        self.sim.setBoolParam(self.sim.boolparam_display_enabled,False)
+        if self.fast == True:
+            self.sim.setBoolParam(self.sim.boolparam_display_enabled,False)
         return 0
 
     
@@ -167,6 +174,8 @@ class SpaceJunkEnv(gym.Env):
             position.append(pos + (random.random() - 0.5)/5) #-0.1 to 0.1
         block = sim.createPrimitiveShape(self.sim.primitiveshape_cuboid,[0.05,0.05,0.15],0)
         sim.setObjectPosition(block,sim.handle_world,position)
+        sim.setObjectInt32Param(block,sim.shapeintparam_respondable,1)
+        sim.setObjectInt32Param(block,sim.shapeintparam_static,0)
         for i in range(3):
             orientation.append(random.random()*2*3.14159265)
         sim.setObjectOrientation(block,block,orientation)
@@ -181,6 +190,17 @@ class SpaceJunkEnv(gym.Env):
         pixels = list(image)
         x = np.array(pixels, dtype=np.uint8)
         array = x.reshape(360,640,3)
+        return array
+    
+    
+    def getwristimage(self):
+        sim = self.sim
+        cam=sim.getObject("/Sawyer/wristCamera")
+        sim.handleVisionSensor(cam)
+        image,resolution=sim.getVisionSensorImg(cam)
+        pixels = list(image)
+        x = np.array(pixels, dtype=np.uint8)
+        array = x.reshape(480,640,3)
         return array
     
     
